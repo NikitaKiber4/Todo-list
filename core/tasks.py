@@ -19,10 +19,8 @@ class TaskManager:
         self.tasks[self.counter] = task
         self.counter += 1
 
-    def list_tasks(self) -> list:
-        output = []
-        for key in self.tasks:
-            output.append((key, self.tasks[key]))
+    def list_tasks(self) -> dict:
+        output = self.tasks.copy()
         return output
 
     def complete_task(self, task_id: int) -> None:

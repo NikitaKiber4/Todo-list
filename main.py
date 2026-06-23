@@ -1,4 +1,79 @@
 import core.tasks as tasks
+from fastapi import FastAPI, HTTPException
+from core.models import CreateTask
+
+app = FastAPI(title="Todo List API")
+
+tasker = tasks.TaskManager()
+tasker.add_task("task")
+
+@app.get("/api/v1/tasks")
+async def get_tasks(is_completed: bool | None = None):
+    task_list = []
+    output = tasker.list_tasks()
+
+    for task_id, task_obj in output.items():
+        task_is_completed = task_obj.status == "Completed"
+
+        if is_completed == task_is_completed or is_completed is None:
+            task_list.append({
+                "id": task_id,
+                 "created_at": task_obj.created_at,
+                 "status": task_obj.status,
+                 "title": task_obj.title,
+                 "description": task_obj.description
+                 })
+    return task_list
+
+
+@app.get("/api/v1/tasks/{task_id}")
+async def get_task(task_id: int):
+    output = tasker.list_tasks()
+    try:
+        task_obj = output[task_id]
+        return {
+            "id": task_id,
+             "created_at": task_obj.created_at,
+             "status": task_obj.status,
+             "title": task_obj.title,
+             "description": task_obj.description
+             }
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Task not found")
+
+
+@app.post("/api/v1/tasks")
+async def create_task(task_in: CreateTask):
+    title = task_in.title
+    description = task_in.description
+
+    tasker.add_task(title, description)
+    return {"message": "Task created successfully", "task": task_in}
+
+
+@app.put("/api/v1/tasks/{task_id}")
+async def complete_task(task_id: int):
+    task_list = tasker.list_tasks()
+
+    if task_id not in task_list:
+        raise HTTPException(status_code=404, detail="Task not found")
+
+    if task_list[task_id].status == "Completed":
+        raise HTTPException(status_code=409, detail="Task already completed")
+
+    tasker.complete_task(task_id)
+    return {"message": "Task completed successfully"}
+
+
+@app.delete("/api/v1/tasks/{task_id}")
+async def delete_task(task_id: int):
+    task_list = tasker.list_tasks()
+
+    if task_id not in task_list:
+        raise HTTPException(status_code=404, detail="Task not found")
+
+    tasker.delete_task(task_id)
+    return {"message": "Task deleted successfully"}
 
 def main():
     tasker = tasks.TaskManager()
@@ -27,10 +102,10 @@ def controller(tasker):
                 print("No tasks found\n")
             else:
                 for tsk in output:
-                    if tsk[1].description:
-                        print(f"[{tsk[0]}]{tsk[1].created_at}\nStatus: {tsk[1].status}\nTask: {tsk[1].title}\nDescription: {tsk[1].description}")
+                    if output[tsk].description:
+                        print(f"[{tsk}]{output[tsk].created_at}\nStatus: {output[tsk].status}\nTask: {output[tsk].title}\nDescription: {output[tsk].description}")
                     else:
-                        print(f"[{tsk[0]}]{tsk[1].created_at}\nStatus: {tsk[1].status}\nTask: {tsk[1].title}")
+                        print(f"[{tsk}]{output[tsk].created_at}\nStatus: {output[tsk].status}\nTask: {output[tsk].title}")
                     print()
 
         elif option == "3":
