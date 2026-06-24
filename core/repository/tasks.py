@@ -1,6 +1,5 @@
 from datetime import datetime
 from core.models import TaskModel
-from sqlalchemy.orm import Session
 
 class Task:
     def __init__(self, title:str = None, description:str = None) -> None:
