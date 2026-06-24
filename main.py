@@ -1,78 +1,96 @@
-import core.tasks as tasks
-from fastapi import FastAPI, HTTPException
+import core.repository.tasks as tasks
+from fastapi import FastAPI, HTTPException, Depends
 from core.models import CreateTask
+from sqlalchemy.orm import Session
+from core.database import get_db, engine, Base
+
 
 app = FastAPI(title="Todo List API")
+Base.metadata.create_all(bind=engine)
 
 tasker = tasks.TaskManager()
-tasker.add_task("task")
 
 @app.get("/api/v1/tasks")
-async def get_tasks(is_completed: bool | None = None):
+async def get_tasks(is_completed: bool | None = None, db_session: Session = Depends(get_db)):
+    db_tasks = tasker.list_tasks(db_session)
     task_list = []
-    output = tasker.list_tasks()
 
-    for task_id, task_obj in output.items():
-        task_is_completed = task_obj.status == "Completed"
-
-        if is_completed == task_is_completed or is_completed is None:
+    for task_obj in db_tasks:
+        if is_completed == task_obj.status or is_completed is None:
             task_list.append({
-                "id": task_id,
-                 "created_at": task_obj.created_at,
-                 "status": task_obj.status,
-                 "title": task_obj.title,
-                 "description": task_obj.description
-                 })
+                "id": task_obj.id,
+                "created_at": task_obj.created_at,
+                "status": "Completed" if task_obj.status else "Not Completed",
+                "title": task_obj.title,
+                "description": task_obj.description
+            })
+
     return task_list
 
 
 @app.get("/api/v1/tasks/{task_id}")
-async def get_task(task_id: int):
-    output = tasker.list_tasks()
-    try:
-        task_obj = output[task_id]
-        return {
-            "id": task_id,
-             "created_at": task_obj.created_at,
-             "status": task_obj.status,
-             "title": task_obj.title,
-             "description": task_obj.description
-             }
-    except KeyError:
+async def get_task(task_id: int, db_session: Session = Depends(get_db)):
+    task_obj = tasker.list_tasks(db_session, task_id)
+
+    if task_obj is None:
         raise HTTPException(status_code=404, detail="Task not found")
+
+    return {
+        "id": task_id,
+        "created_at": task_obj.created_at,
+        "status": task_obj.status,
+        "title": task_obj.title,
+        "description": task_obj.description
+    }
 
 
 @app.post("/api/v1/tasks")
-async def create_task(task_in: CreateTask):
+async def create_task(task_in: CreateTask, db_session: Session = Depends(get_db)):
     title = task_in.title
     description = task_in.description
 
-    tasker.add_task(title, description)
-    return {"message": "Task created successfully", "task": task_in}
+    try:
+        new_task = tasker.add_task(db_session, title, description)
+    except Exception as e:
+        print(f"Task creation failed: {e}")
+        raise HTTPException(status_code=400, detail=f"Ошибка записи задачи в базу данных")
+    return {"message": "Task created successfully", "task": {
+        "id": new_task.id,
+        "created_at": new_task.created_at,
+        "status": new_task.status,
+        "title": new_task.title,
+        "description": new_task.description
+    }}
 
 
 @app.put("/api/v1/tasks/{task_id}")
-async def complete_task(task_id: int):
-    task_list = tasker.list_tasks()
+async def complete_task(task_id: int, db_session: Session = Depends(get_db)):
+    task = tasker.list_tasks(db_session, task_id)
 
-    if task_id not in task_list:
+    if task is None:
         raise HTTPException(status_code=404, detail="Task not found")
 
-    if task_list[task_id].status == "Completed":
+    if task.status:
         raise HTTPException(status_code=409, detail="Task already completed")
 
-    tasker.complete_task(task_id)
-    return {"message": "Task completed successfully"}
+    task = tasker.mark_as_completed(db_session, task)
+    return {"message": "Task completed successfully", "task": {
+        "id": task.id,
+        "created_at": task.created_at,
+        "status": task.status,
+        "title": task.title,
+        "description": task.description
+    }}
 
 
 @app.delete("/api/v1/tasks/{task_id}")
-async def delete_task(task_id: int):
-    task_list = tasker.list_tasks()
+async def delete_task(task_id: int, db_session: Session = Depends(get_db)):
+    task = tasker.list_tasks(db_session, task_id)
 
-    if task_id not in task_list:
+    if task is None:
         raise HTTPException(status_code=404, detail="Task not found")
 
-    tasker.delete_task(task_id)
+    tasker.delete_task(db_session, task)
     return {"message": "Task deleted successfully"}
 
 def main():
