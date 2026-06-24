@@ -3,38 +3,100 @@
         #HOW TO LAUNCH LOCALLY
 
 ENDPOINTS:
-url: '/api/v1/tasks'
-method: 'GET'
-filters:
-'is_completed=true'
-'is_completed=false'
+1. Получить список всех задач
+URL: /api/v1/tasks
 
-JSON REQUEST EXAMPLE
+Метод: GET
+
+Параметры фильтрации (Query params):
+
+is_completed (bool, необязательный): true (только выполненные) или false (только активные).
+
+Пример успешного ответа (200 OK):
+
+JSON
+[
+  {
+    "id": 1,
+    "created_at": "24.06.26 18:55:00",
+    "status": "Not Completed",
+    "title": "Купить молоко",
+    "description": "3.2% жирности"
+  }
+]
+2. Получить конкретную задачу по ID
+URL: /api/v1/tasks/{task_id}
+
+Метод: GET
+
+Пример успешного ответа (200 OK):
+
+JSON
 {
-    "title": "title",
-    "description": "description"
+  "id": 1,
+  "created_at": "24.06.26 18:55:00",
+  "status": false,
+  "title": "Купить молоко",
+  "description": "3.2% жирности"
 }
+3. Создать новую задачу
+URL: /api/v1/tasks
 
-JSON ANSWER EXAMPLE
+Метод: POST
+
+Пример тела запроса (JSON Request):
+
+JSON
 {
-    "id": 0,
-    "time": "d.m.y H:M:S",
-    "status": "Not completed",
-    "title": "title",
-    "description": "description"
+  "title": "Выучить FastAPI",
+  "description": "Разобраться со слоем репозитория"
 }
+Пример успешного ответа (200 OK):
 
-JSON DELETE REQUEST EXAMPLE
-url: api/v1/tasks/{id}
-method: DELETE
-
-JSON DELETE ANSWER EXAMPLE
+JSON
 {
-    "message": "deleted successfully"
+  "message": "Task created successfully",
+  "task": {
+    "id": 2,
+    "created_at": "24.06.26 19:10:15",
+    "status": false,
+    "title": "Выучить FastAPI",
+    "description": "Разобраться со слоем репозитория"
+  }
+}
+4. Отметить задачу как выполненную
+URL: /api/v1/tasks/{task_id}
+
+Метод: PUT
+
+Пример успешного ответа (200 OK):
+
+JSON
+{
+  "message": "Task completed successfully",
+  "task": {
+    "id": 2,
+    "created_at": "24.06.26 19:10:15",
+    "status": true,
+    "title": "Выучить FastAPI",
+    "description": "Разобраться со слоем репозитория"
+  }
+}
+5. Удалить задачу
+URL: /api/v1/tasks/{task_id}
+
+Метод: DELETE
+
+Пример успешного ответа (200 OK):
+
+JSON
+{
+  "message": "Task deleted successfully"
 }
 
 ERROR CODES:
-400 - wrong format
+400 - bad request
 404 - data not found
+409 - status conflict
 422 - unavailable option
 500 - internal server error
